@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pure Sequence Sorter (Hidden Feedback)</title>
+    
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); 
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #game-container {
+            max-width: 450px; 
+            min-height: 80vh; 
+            width: 95%;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+
+        #game-title {
+            color: #ffd700;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        #score-timer-panel {
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0;
+            margin-bottom: 15px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .panel-item span {
+            font-weight: bold;
+            font-size: 1.5em;
+            color: #ff6347; 
+        }
+
+        #target-answer-panel {
+            font-size: 1.2em;
+            padding: 10px;
+            margin-bottom: 20px;
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+        }
+
+        #target-answer {
+            font-size: 1em;
+            color: #76ff03; 
+            font-weight: bold;
+        }
+
+        #bubble-area {
+            min-height: 500px; 
+            width: 100%;
+            position: relative;
+            margin-bottom: 20px;
+            background-image: linear-gradient(0deg, transparent 50%, rgba(255, 255, 255, 0.1) 50%),
+                              linear-gradient(90deg, transparent 50%, rgba(255, 255, 255, 0.1) 50%);
+            background-size: 20px 20px;
+        }
+
+        .bubble {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.2em;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            transition: transform 0.1s ease-out, box-shadow 0.3s ease-out, opacity 0.3s ease-out;
+            user-select: none;
+            border: 3px solid #4dd0e1; 
+            background-color: rgba(77, 208, 225, 0.5); 
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+        }
+
+        .bubble:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 25px #ffd700;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        #start-button {
+            padding: 10px 20px;
+            font-size: 1.2em;
+            background-color: #76ff03; 
+            color: #1e3c72; 
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            font-weight: bold;
+        }
+
+        #start-button:hover {
+            background-color: #aeea00;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        #game-over-message {
+            font-size: 1.5em;
+            color: #ff6347;
+            font-weight: bold;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <h1 id="game-title">Pure Sequence Sorter</h1>
+        
+        <div id="score-timer-panel">
+            <div class="panel-item">Score: <span id="score">0</span></div>
+            <div class="panel-item">Round Time: <span id="timer">15s</span></div>
+        </div>
+
+        <div id="target-answer-panel">
+            Task: <span id="target-answer">Click Start to Sort!</span>
+        </div>
+
+        <div id="bubble-area">
+        </div>
+
+        <button id="start-button">Start Game</button>
+        <div id="game-over-message" class="hidden">Game Over! Final Score: <span id="final-score">0</span></div>
+
+    </div>
+
+    <script>
+        const scoreElement = document.getElementById('score');
+        const timerElement = document.getElementById('timer');
+        const targetAnswerElement = document.getElementById('target-answer');
+        const bubbleArea = document.getElementById('bubble-area');
+        const startButton = document.getElementById('start-button');
+        const gameOverMessage = document.getElementById('game-over-message');
+        const finalScoreElement = document.getElementById('final-score');
+
+        let score = 0;
+        let roundTimeLeft = 15;
+        let roundInterval;
+        const bubbleCount = 4;
+        let nextExpectedValue = null; 
+        let sortedAnswers = [];       
+        let clickedCount = 0;
+        let roundFailed = false; 
+        let allBubbles = []; 
+
+        const fixedPositions = [
+            { x: 5, y: 5 },
+            { x: 55, y: 20 },
+            { x: 5, y: 45 },
+            { x: 55, y: 70 }
+        ];
+
+        function generateExpression() {
+            const operators = ['+', '-', '*']; 
+            const op = operators[Math.floor(Math.random() * operators.length)];
+            let num1, num2, result;
+
+            if (op === '*') {
+                num1 = Math.floor(Math.random() * 5) + 2; 
+                num2 = Math.floor(Math.random() * 5) + 2;
+            } else {
+                num1 = Math.floor(Math.random() * 20) + 5; 
+                num2 = Math.floor(Math.random() * 10) + 1;
+            }
+
+            if (op === '-') {
+                if (num2 > num1) {
+                    [num1, num2] = [num2, num1];
+                }
+            }
+
+            const expression = `${num1} ${op} ${num2}`;
+            result = eval(expression); 
+
+            return { expression, result };
+        }
+        
+        function updateRoundTimer() {
+            if (roundTimeLeft <= 0) {
+                clearInterval(roundInterval);
+                processRoundJudgment(false, "TIME OUT!");
+                return;
+            }
+            roundTimeLeft--;
+            timerElement.textContent = `${roundTimeLeft}s`;
+        }
+
+
+        function startRoundTimer() {
+            roundTimeLeft = 15;
+            timerElement.textContent = `${roundTimeLeft}s`;
+            clearInterval(roundInterval);
+            roundInterval = setInterval(updateRoundTimer, 1000);
+        }
+
+        function showFailureFeedback() {
+            allBubbles.forEach(bubble => {
+                if (bubble.dataset.status !== 'correct') {
+                    bubble.style.opacity = 0.5; 
+                }
+            });
+        }
+
+        function processRoundJudgment(wasPerfect, reason = "Sequence Failure") {
+            clearInterval(roundInterval);
+
+            let message = '';
+            let color = '';
+            
+            if (roundFailed || !wasPerfect) {
+                score = Math.max(0, score - 50); 
+                scoreElement.textContent = score;
+                message = `${reason.toUpperCase()}! (-50 pts)`;
+                color = '#ff6347'; 
+                
+                showFailureFeedback();
+            } else {
+                score += 100; 
+                scoreElement.textContent = score;
+                message = 'PERFECT SEQUENCE! (+100 pts)';
+                color = '#76ff03'; 
+            }
+
+            targetAnswerElement.textContent = message;
+            targetAnswerElement.style.color = color;
+            
+            setTimeout(() => {
+                targetAnswerElement.style.color = '#76ff03'; 
+                createBubbles();
+            }, 2000); 
+        }
+
+        function createBubbles() {
+            clearInterval(roundInterval);
+
+            bubbleArea.innerHTML = ''; 
+            clickedCount = 0;
+            roundFailed = false;
+            allBubbles = []; 
+            
+            let bubbleData = [];
+            let answers = new Set(); 
+
+            while (bubbleData.length < bubbleCount) {
+                let newData = generateExpression();
+                if (!answers.has(newData.result)) {
+                    answers.add(newData.result);
+                    bubbleData.push(newData);
+                }
+            }
+
+            sortedAnswers = Array.from(answers).sort((a, b) => a - b);
+            nextExpectedValue = sortedAnswers[0];
+
+            targetAnswerElement.textContent = `Sorting...`; 
+
+            let shuffledPositions = [...fixedPositions].sort(() => Math.random() - 0.5); 
+
+            bubbleData.forEach((data, index) => {
+                const bubble = document.createElement('div');
+                
+                bubble.style.left = `${shuffledPositions[index].x}%`;
+                bubble.style.top = `${shuffledPositions[index].y}%`;
+
+                bubble.classList.add('bubble'); 
+                bubble.textContent = data.expression.replace('*', '×').replace('/', '÷'); 
+
+                bubble.dataset.answer = data.result;
+                bubble.dataset.status = 'unclicked';
+
+                bubble.addEventListener('click', handleBubbleClick);
+                bubbleArea.appendChild(bubble);
+                allBubbles.push(bubble);
+            });
+            
+            startRoundTimer();
+        }
+
+
+        function handleBubbleClick(event) {
+            const clickedBubble = event.currentTarget;
+            const clickedAnswer = parseInt(clickedBubble.dataset.answer);
+
+            if (clickedBubble.classList.contains('bubble')) { 
+                if (clickedAnswer === nextExpectedValue) {
+                    
+                    clickedCount++;
+                    
+                    clickedBubble.removeEventListener('click', handleBubbleClick); 
+                    clickedBubble.dataset.status = 'correct';
+
+                    if (clickedCount < bubbleCount) {
+                        nextExpectedValue = sortedAnswers[clickedCount];
+                    } else {
+                        processRoundJudgment(true); 
+                    }
+                } else {
+                    
+                    roundFailed = true; 
+                    
+                    clickedBubble.removeEventListener('click', handleBubbleClick); 
+                    clickedBubble.dataset.status = 'incorrect';
+                    
+                    clickedCount++;
+                    
+                    if (clickedCount < bubbleCount) {
+                        nextExpectedValue = sortedAnswers[clickedCount];
+                    } else {
+                         processRoundJudgment(false); 
+                    }
+                }
+            }
+        }
+
+        function startGame() {
+            score = 0;
+            scoreElement.textContent = score;
+            
+            startButton.classList.add('hidden');
+            gameOverMessage.classList.add('hidden');
+
+            createBubbles();
+        }
+
+        function endGame() {
+            clearInterval(roundInterval);
+            bubbleArea.innerHTML = 'GAME OVER!';
+            targetAnswerElement.textContent = '...';
+            targetAnswerElement.style.fontSize = '2em'; 
+            
+            finalScoreElement.textContent = score;
+            gameOverMessage.classList.remove('hidden');
+            startButton.textContent = 'Play Again';
+            startButton.classList.remove('hidden');
+            
+            document.querySelectorAll('.bubble').forEach(b => b.removeEventListener('click', handleBubbleClick));
+        }
+
+        startButton.addEventListener('click', startGame);
+    </script>
+</body>
+</html>
