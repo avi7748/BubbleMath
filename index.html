@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pure Sequence Sorter (Hidden Feedback)</title>
+    <title>Pure Sequence Sorter</title>
     
     <style>
         body {
@@ -96,6 +96,12 @@
             box-shadow: 0 0 25px #ffd700;
         }
         
+        .selected {
+            border: 6px solid #f0f0f0; 
+            box-shadow: 0 0 20px #f0f0f0; 
+            cursor: default;
+        }
+
         @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
@@ -111,10 +117,27 @@
             cursor: pointer;
             transition: background-color 0.2s;
             font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        #end-button {
+            padding: 10px 20px;
+            font-size: 1.2em;
+            background-color: #ff6347; 
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            font-weight: bold;
         }
 
         #start-button:hover {
             background-color: #aeea00;
+        }
+
+        #end-button:hover {
+            background-color: #e55337;
         }
 
         .hidden {
@@ -145,7 +168,11 @@
         <div id="bubble-area">
         </div>
 
-        <button id="start-button">Start Game</button>
+        <div>
+            <button id="start-button">Start Game</button>
+            <button id="end-button" class="hidden">End Game</button> 
+        </div>
+
         <div id="game-over-message" class="hidden">Game Over! Final Score: <span id="final-score">0</span></div>
 
     </div>
@@ -156,6 +183,7 @@
         const targetAnswerElement = document.getElementById('target-answer');
         const bubbleArea = document.getElementById('bubble-area');
         const startButton = document.getElementById('start-button');
+        const endButton = document.getElementById('end-button');
         const gameOverMessage = document.getElementById('game-over-message');
         const finalScoreElement = document.getElementById('final-score');
 
@@ -308,6 +336,8 @@
             const clickedAnswer = parseInt(clickedBubble.dataset.answer);
 
             if (clickedBubble.classList.contains('bubble')) { 
+                clickedBubble.classList.add('selected'); // NEW: Visual border on click
+
                 if (clickedAnswer === nextExpectedValue) {
                     
                     clickedCount++;
@@ -343,6 +373,7 @@
             scoreElement.textContent = score;
             
             startButton.classList.add('hidden');
+            endButton.classList.remove('hidden');
             gameOverMessage.classList.add('hidden');
 
             createBubbles();
@@ -350,19 +381,22 @@
 
         function endGame() {
             clearInterval(roundInterval);
+            endButton.classList.add('hidden');
+            startButton.classList.remove('hidden');
+
             bubbleArea.innerHTML = 'GAME OVER!';
-            targetAnswerElement.textContent = '...';
+            targetAnswerElement.textContent = 'FINAL SCORE:';
             targetAnswerElement.style.fontSize = '2em'; 
             
             finalScoreElement.textContent = score;
             gameOverMessage.classList.remove('hidden');
             startButton.textContent = 'Play Again';
-            startButton.classList.remove('hidden');
             
             document.querySelectorAll('.bubble').forEach(b => b.removeEventListener('click', handleBubbleClick));
         }
 
         startButton.addEventListener('click', startGame);
+        endButton.addEventListener('click', endGame);
     </script>
 </body>
 </html>
