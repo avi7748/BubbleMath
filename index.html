@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pure Sequence Sorter</title>
+    <title>Dynamic Sequence Sorter</title>
     
     <style>
         body {
@@ -154,7 +154,7 @@
 </head>
 <body>
     <div id="game-container">
-        <h1 id="game-title">Pure Sequence Sorter</h1>
+        <h1 id="game-title">Dynamic Sequence Sorter</h1>
         
         <div id="score-timer-panel">
             <div class="panel-item">Score: <span id="score">0</span></div>
@@ -190,29 +190,45 @@
         let score = 0;
         let roundTimeLeft = 15;
         let roundInterval;
-        const bubbleCount = 4;
+        let bubbleCount = 4; // This will be randomized in createBubbles
         let nextExpectedValue = null; 
         let sortedAnswers = [];       
         let clickedCount = 0;
         let roundFailed = false; 
         let allBubbles = []; 
 
-        const fixedPositions = [
-            { x: 5, y: 5 },
-            { x: 55, y: 20 },
-            { x: 5, y: 45 },
-            { x: 55, y: 70 }
+        // Expanded fixed positions to handle up to 6 bubbles in a vertical zigzag
+        const allFixedPositions = [
+            { x: 5, y: 5 },   // 1. Top Left
+            { x: 55, y: 15 },  // 2. Top Right
+            { x: 5, y: 30 },  // 3. Upper Mid Left
+            { x: 55, y: 45 },  // 4. Lower Mid Right
+            { x: 5, y: 60 },  // 5. Bottom Mid Left
+            { x: 55, y: 75 }   // 6. Bottom Right
         ];
 
+        function generateDivisibleNumbers() {
+            let num1, num2;
+            // Generate a denominator between 2 and 6
+            num2 = Math.floor(Math.random() * 5) + 2; 
+            // Generate a numerator that is a multiple of num2, between num2*2 and num2*5
+            num1 = num2 * (Math.floor(Math.random() * 4) + 2); 
+            return { num1, num2 };
+        }
+
         function generateExpression() {
-            const operators = ['+', '-', '*']; 
+            const operators = ['+', '-', '*', '/']; 
             const op = operators[Math.floor(Math.random() * operators.length)];
-            let num1, num2, result;
+            let num1, num2;
 
             if (op === '*') {
                 num1 = Math.floor(Math.random() * 5) + 2; 
                 num2 = Math.floor(Math.random() * 5) + 2;
-            } else {
+            } else if (op === '/') {
+                const divisible = generateDivisibleNumbers();
+                num1 = divisible.num1;
+                num2 = divisible.num2;
+            } else { // + or -
                 num1 = Math.floor(Math.random() * 20) + 5; 
                 num2 = Math.floor(Math.random() * 10) + 1;
             }
@@ -224,7 +240,7 @@
             }
 
             const expression = `${num1} ${op} ${num2}`;
-            result = eval(expression); 
+            const result = eval(expression); 
 
             return { expression, result };
         }
@@ -292,6 +308,9 @@
             roundFailed = false;
             allBubbles = []; 
             
+            // Randomize bubble count between 3 and 6
+            bubbleCount = Math.floor(Math.random() * 4) + 3; 
+
             let bubbleData = [];
             let answers = new Set(); 
 
@@ -306,9 +325,11 @@
             sortedAnswers = Array.from(answers).sort((a, b) => a - b);
             nextExpectedValue = sortedAnswers[0];
 
-            targetAnswerElement.textContent = `Sorting...`; 
+            targetAnswerElement.textContent = `Sorting (${bubbleCount} bubbles)...`; 
 
-            let shuffledPositions = [...fixedPositions].sort(() => Math.random() - 0.5); 
+            // Select and shuffle only the necessary number of positions
+            let availablePositions = allFixedPositions.slice(0, bubbleCount);
+            let shuffledPositions = [...availablePositions].sort(() => Math.random() - 0.5); 
 
             bubbleData.forEach((data, index) => {
                 const bubble = document.createElement('div');
@@ -336,7 +357,7 @@
             const clickedAnswer = parseInt(clickedBubble.dataset.answer);
 
             if (clickedBubble.classList.contains('bubble')) { 
-                clickedBubble.classList.add('selected'); // NEW: Visual border on click
+                clickedBubble.classList.add('selected'); // Visual border on click
 
                 if (clickedAnswer === nextExpectedValue) {
                     
