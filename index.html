@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dynamic Sequence Sorter</title>
+    <title>Pure Sequence Sorter</title>
     
     <style>
         body {
@@ -154,7 +154,7 @@
 </head>
 <body>
     <div id="game-container">
-        <h1 id="game-title">Dynamic Sequence Sorter</h1>
+        <h1 id="game-title">Pure Sequence Sorter</h1>
         
         <div id="score-timer-panel">
             <div class="panel-item">Score: <span id="score">0</span></div>
@@ -190,28 +190,26 @@
         let score = 0;
         let roundTimeLeft = 15;
         let roundInterval;
-        let bubbleCount = 4; // This will be randomized in createBubbles
+        let bubbleCount = 0; // Dynamic bubble count
         let nextExpectedValue = null; 
         let sortedAnswers = [];       
         let clickedCount = 0;
         let roundFailed = false; 
-        let allBubbles = []; 
+        let allBubbles = [];
+        let usedAnswers = []; // NEW: Array to track answers from the last successful round
 
-        // Expanded fixed positions to handle up to 6 bubbles in a vertical zigzag
         const allFixedPositions = [
-            { x: 5, y: 5 },   // 1. Top Left
-            { x: 55, y: 15 },  // 2. Top Right
-            { x: 5, y: 30 },  // 3. Upper Mid Left
-            { x: 55, y: 45 },  // 4. Lower Mid Right
-            { x: 5, y: 60 },  // 5. Bottom Mid Left
-            { x: 55, y: 75 }   // 6. Bottom Right
+            { x: 5, y: 5 },
+            { x: 55, y: 15 },
+            { x: 5, y: 30 },
+            { x: 55, y: 45 },
+            { x: 5, y: 60 },
+            { x: 55, y: 75 }
         ];
 
         function generateDivisibleNumbers() {
             let num1, num2;
-            // Generate a denominator between 2 and 6
             num2 = Math.floor(Math.random() * 5) + 2; 
-            // Generate a numerator that is a multiple of num2, between num2*2 and num2*5
             num1 = num2 * (Math.floor(Math.random() * 4) + 2); 
             return { num1, num2 };
         }
@@ -228,7 +226,7 @@
                 const divisible = generateDivisibleNumbers();
                 num1 = divisible.num1;
                 num2 = divisible.num2;
-            } else { // + or -
+            } else {
                 num1 = Math.floor(Math.random() * 20) + 5; 
                 num2 = Math.floor(Math.random() * 10) + 1;
             }
@@ -284,13 +282,18 @@
                 color = '#ff6347'; 
                 
                 showFailureFeedback();
+                // If round failed, don't update usedAnswers array
             } else {
                 score += 100; 
                 scoreElement.textContent = score;
                 message = 'PERFECT SEQUENCE! (+100 pts)';
                 color = '#76ff03'; 
+                
+                // NEW: Update usedAnswers with the successful set of answers
+                usedAnswers = [...sortedAnswers];
             }
 
+            // NEW: Task is removed, so we only display the result message
             targetAnswerElement.textContent = message;
             targetAnswerElement.style.color = color;
             
@@ -314,19 +317,34 @@
             let bubbleData = [];
             let answers = new Set(); 
 
-            while (bubbleData.length < bubbleCount) {
+            // Attempt to fill bubbleData
+            let attempts = 0;
+            const maxAttempts = 100;
+
+            while (bubbleData.length < bubbleCount && attempts < maxAttempts) {
                 let newData = generateExpression();
-                if (!answers.has(newData.result)) {
+                
+                // Check if the answer is unique in the current round AND NOT in the previously used set
+                if (!answers.has(newData.result) && !usedAnswers.includes(newData.result)) {
                     answers.add(newData.result);
                     bubbleData.push(newData);
                 }
+                attempts++;
+            }
+            
+            // If we failed to get enough unique answers, just use what we have, but keep the complexity
+            bubbleCount = bubbleData.length;
+            if (bubbleCount < 3) {
+                 // Restart round generation if we failed severely
+                 return createBubbles();
             }
 
             sortedAnswers = Array.from(answers).sort((a, b) => a - b);
             nextExpectedValue = sortedAnswers[0];
 
-            targetAnswerElement.textContent = `Sorting (${bubbleCount} bubbles)...`; 
-
+            // NEW: Task is permanently removed from display
+            targetAnswerElement.textContent = ``; 
+            
             // Select and shuffle only the necessary number of positions
             let availablePositions = allFixedPositions.slice(0, bubbleCount);
             let shuffledPositions = [...availablePositions].sort(() => Math.random() - 0.5); 
@@ -357,7 +375,7 @@
             const clickedAnswer = parseInt(clickedBubble.dataset.answer);
 
             if (clickedBubble.classList.contains('bubble')) { 
-                clickedBubble.classList.add('selected'); // Visual border on click
+                clickedBubble.classList.add('selected');
 
                 if (clickedAnswer === nextExpectedValue) {
                     
@@ -396,6 +414,9 @@
             startButton.classList.add('hidden');
             endButton.classList.remove('hidden');
             gameOverMessage.classList.add('hidden');
+            
+            // Reset used answers for a new game
+            usedAnswers = []; 
 
             createBubbles();
         }
@@ -406,6 +427,8 @@
             startButton.classList.remove('hidden');
 
             bubbleArea.innerHTML = 'GAME OVER!';
+            
+            // FINAL SCORE DISPLAY
             targetAnswerElement.textContent = 'FINAL SCORE:';
             targetAnswerElement.style.fontSize = '2em'; 
             
